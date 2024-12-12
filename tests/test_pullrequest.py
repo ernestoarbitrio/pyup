@@ -2,17 +2,18 @@
 from __future__ import absolute_import, print_function, unicode_literals
 from unittest import TestCase
 from pyup.pullrequest import PullRequest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
-def pullrequest_factory(title, state="open", url="http://foo.bar",
-                        created_at=datetime.now(), number=1):
+def pullrequest_factory(
+    title, state="open", url="http://foo.bar", created_at=datetime.now(), number=1
+):
     return PullRequest(
         title=title,
         state=state,
         url=url,
         created_at=created_at,
-        number=number
+        number=number,
     )
 
 
@@ -40,7 +41,6 @@ class PullRequestTypeTest(TestCase):
     def test_unknown(self):
         pr = pullrequest_factory(title="Foo")
         self.assertEqual(pr.type, "unknown")
-        #self.assertTrue(pr.is_scheduled)
 
     def test_compile(self):
         pr = pullrequest_factory(title="Compile foo.txt")
@@ -67,6 +67,18 @@ class PullRequestTypeTest(TestCase):
 
         pr = pullrequest_factory(title="Update this and that")
         self.assertTrue(pr.is_valid)
+
+    def test_config_error_type(self):
+        pr = pullrequest_factory(title="Invalid .pyup.yml")
+        self.assertEqual(pr.type, PullRequest.CONFIG_ERROR_TYPE)
+        self.assertFalse(pr.is_scheduled)
+
+    def test_is_config_error(self):
+        pr = pullrequest_factory(title="Invalid .pyup.yml")
+        self.assertTrue(pr.is_config_error)
+        pr = pullrequest_factory(title="Foo")
+        self.assertFalse(pr.is_config_error)
+
 
 class PullRequestEQTest(TestCase):
     def test_is_eq(self):
@@ -110,9 +122,11 @@ class PullRequestRequirementTestCase(TestCase):
 
     def test_with_prefix(self):
         pr = pullrequest_factory(title="Some Prefix | Update django")
-        self.assertEqual(pr.get_requirement("Some Prefix |"), 'django')
+        self.assertEqual(pr.get_requirement("Some Prefix |"), "django")
 
         flask = pullrequest_factory(title="Pin flask")
         flask_prefix = pullrequest_factory(title="Some Prefix | Pin flask")
         self.assertIsNotNone(flask.get_requirement())
-        self.assertEqual(flask.get_requirement(), flask_prefix.get_requirement("Some Prefix |"))
+        self.assertEqual(
+            flask.get_requirement(), flask_prefix.get_requirement("Some Prefix |")
+        )
