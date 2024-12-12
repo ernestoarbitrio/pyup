@@ -158,6 +158,22 @@ class BotApplyUpdateTest(TestCase):
         bot.apply_updates(initial=True, scheduled=False)
 
         self.assertEqual(the_requirement.pull_request, the_pull)
+    
+    def test_continue_on_empty_updates(self):
+        the_requirement = Mock()
+        the_pull = pullrequest_factory("The PR")
+
+        bot = bot_factory(prs=[the_pull])
+        bot.req_bundle.get_updates = Mock()
+        update = RequirementUpdate(
+            requirement_file="foo", requirement=the_requirement, commit_message="foo"
+        )
+        bot.req_bundle.get_updates.return_value = update
+        bot.iter_updates = Mock(return_value=[[None,None,None,None]])
+        bot.apply_updates(initial=False, scheduled=False)
+        # with no updates the update.requirement.pull_request is not populated with
+        # pull_request.
+        self.assertNotEqual(the_requirement.pull_request, the_pull)
 
     def test_updates_empty(self):
         bot = bot_factory()
@@ -375,6 +391,37 @@ class BotCommitAndPullTest(TestCase):
         # we're looking for the sha here. Make sure that the sha got updated with the new content
         self.assertEqual(create_commit_calls[0][1]["sha"], "abcd")
         self.assertEqual(create_commit_calls[1][1]["sha"], "xyz")
+    
+    def test_repo_name_is_user_repo_full_name(self):
+        bot = bot_factory()
+        delattr(bot.user_repo, "path_with_namespace")
+        bot.user_repo.full_name = "fooname"
+        bot.provider.create_branch = Mock()
+        bot.provider.create_commit.side_effect = [
+            "sha1", "sha2", "sha3"
+        ]
+        bot.create_pull_request = Mock()
+        requirement = Mock()
+        requirement.update_content.return_value = "same content"
+        updates = [            
+            RequirementUpdate(
+                requirement_file=RequirementFile(
+                    path="foo.txt",
+                    content='same content',
+                    sha='abcd'
+                ),
+                requirement=requirement,
+                commit_message="foo"
+            )
+        ]
+
+        with patch('pyup.bot.logger.error') as mock_logger_err:
+            bot.commit_and_pull(True, "new branch", "repo", "", updates)
+        
+        assert mock_logger_err.called
+        mock_logger_err.assert_called_once_with(
+            "Empty commit at fooname, unable to update repo."
+        )
 
     def test_create_branch_fails(self):
         bot = bot_factory()
