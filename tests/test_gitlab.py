@@ -189,7 +189,7 @@ class ProviderTest(TestCase):
         committers = self.provider.get_pull_request_committer(self.repo, mr)
         actual = [a.login for a in committers]
         expected = [a['username'] for a in p]
-        self.assertEquals(actual, expected)
+        self.assertEqual(actual, expected)
 
     def test_close_pull_request(self):
         mr = MagicMock()
